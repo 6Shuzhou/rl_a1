@@ -9,12 +9,6 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
         env,
         use_target_net=use_target_net,
         use_replay_buffer=use_replay_buffer,
-        hidden_dim=128,
-        lr=0.00025,
-        gamma=0.99,
-        batch_size=128,
-        buffer_size=10_000,
-        tau=0.01  # 软更新比例
     )
     
     episode_rewards = []   # 存储每个episode的原始奖励
@@ -41,13 +35,14 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
             step_count += 1
             episode_steps += 1
 
-            agent.update_epsilon()
+            
 
             # 定期打印进度（每5,000步）
             if step_count % 5_000 == 0:
                 current_avg = np.mean(episode_rewards[-20:]) if episode_rewards else 0
                 print(f"{config_name} | Step {step_count} | Ep {episode} | ε={agent.epsilon:.3f} | Avg Reward={current_avg:.1f}")
-
+        
+        agent.update_epsilon()        
         # 记录奖励并计算滑动平均
         episode_rewards.append(total_reward)
         window_size = 20
@@ -67,7 +62,9 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
     plt.title(f"{config_name} - Training Performance")
     plt.legend()
     plt.grid(True)
-    plt.show()
+    
+    plt.savefig(f"{config_name}_training_curve.png", dpi=300, bbox_inches='tight')
+    plt.close()
 
     return avg_rewards  # 返回平滑后的奖励用于对比
 
@@ -76,8 +73,8 @@ def compare_configurations():
     configurations = {
         "Naive": {"use_target_net": False, "use_replay_buffer": False},
         # "Only TN": {"use_target_net": True, "use_replay_buffer": False},
-        "Only ER": {"use_target_net": False, "use_replay_buffer": True},
-        "TN & ER": {"use_target_net": True, "use_replay_buffer": True}
+        # "Only ER": {"use_target_net": False, "use_replay_buffer": True},
+        # "TN & ER": {"use_target_net": True, "use_replay_buffer": True}
     }
 
     results = {}
@@ -95,7 +92,8 @@ def compare_configurations():
     plt.title("Performance Comparison of Different Configurations")
     plt.legend()
     plt.grid(True)
-    plt.show()
+    plt.savefig("performance_comparison.png", dpi=300, bbox_inches='tight')
+    plt.close()  # 关闭图像释放内存
 
 if __name__ == "__main__":
     compare_configurations()

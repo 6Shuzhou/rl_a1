@@ -7,8 +7,8 @@ import torch.nn as nn
 class QLearningAgent:
     def __init__(self, env, use_target_net=False, use_replay_buffer=False,
                  hidden_dim=128, lr=0.00025, gamma=0.99, epsilon=1.0, 
-                 epsilon_decay=0.999, epsilon_min=0.001, batch_size=128,
-                 buffer_size=10_000, tau=0.01):
+                 epsilon_decay=0.999, epsilon_min=0.01, batch_size=128,
+                 buffer_size=10_000, tau=0.1):
         self.env = env
         self.state_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.n
@@ -18,7 +18,7 @@ class QLearningAgent:
         self.tau = tau  # 软更新比例
 
         # 主网络和目标网络
-        self.q_net = QNetwork(self.state_dim, self.action_dim)  # 使用新网络结构
+        self.q_net = QNetwork(self.state_dim, self.action_dim, hidden_dim)  # 使用新网络结构
         
         self.target_q_net = QNetwork(self.state_dim, self.action_dim) if use_target_net else None
         if self.target_q_net:
