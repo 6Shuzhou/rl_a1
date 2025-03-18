@@ -27,11 +27,10 @@ PyTorch implementation of DQN with ablation studies and component analysis for C
 ### File Structure
 
 
-├── agent.py               # QNetwork and QLearningAgent implementation
-├── TN_ER_run.py                 # Component comparison experiments
-├── ablation_study_naive.py      # Hyperparameter sensitivity analysis
-├── replay_buffer.py       # Experience replay implementation
-├── ablation_plots               # Generated performance plots
-├── ablation_results               # Training logs and metrics
-└── README.md
+- agent.py               # QNetwork and QLearningAgent implementation
+- TN_ER_run.py                 # Component comparison experiments
+- ablation_study_naive.py      # Hyperparameter sensitivity analysis
+- replay_buffer.py       # Experience replay implementation
+- ablation_plots               # Generated performance plots
+- ablation_results               # Training logs and metrics
 
