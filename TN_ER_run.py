@@ -22,7 +22,7 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
         gamma=0.99,
         batch_size=128,
         buffer_size=10_000,
-        tau=0.01,                # 目标网络软更新系数
+        tau=0.1,                # 目标网络软更新系数
         epsilon_decay=0.999,      # 最佳ε衰减率
         epsilon_min=0.01,
         update_interval=4         # 最佳更新间隔（每4步更新一次）
@@ -58,7 +58,7 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
 
             # 定期打印进度（每10,000步）
             if step_count % 10_000 == 0:
-                current_avg = np.mean(episode_rewards[-20:]) if episode_rewards else 0
+                current_avg = np.mean(episode_rewards[-200:]) if episode_rewards else 0
                 print(f"{config_name} | Step {step_count} | Ep {episode} | ε={agent.epsilon:.3f} | Avg Reward={current_avg:.1f}")
 
         # 每个episode结束时更新ε
@@ -66,7 +66,7 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
 
         # 记录奖励并计算滑动平均
         episode_rewards.append(total_reward)
-        window_size = 20
+        window_size = 200
         avg = np.mean(episode_rewards[-window_size:]) if episode >= window_size else np.mean(episode_rewards)
         avg_rewards.append(avg)
         episode += 1
@@ -74,7 +74,7 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
     # 保存训练曲线
     plt.figure(figsize=(12, 4))
     plt.plot(episode_rewards, alpha=0.2, label="Raw Reward")
-    plt.plot(avg_rewards, linewidth=2, label="Smoothed (20-episode Avg)")
+    plt.plot(avg_rewards, linewidth=2, label="Smoothed (200-episode Avg)")
     plt.xlabel("Episode")
     plt.ylabel("Total Reward")
     plt.title(f"{config_name} - Training Performance (Best Params)")
@@ -88,9 +88,9 @@ def compare_configurations():
     """ 比较四种配置的性能（使用最佳参数）"""
     configurations = {
         # "Naive": {"use_target_net": False, "use_replay_buffer": False},
-        "Only TN": {"use_target_net": True, "use_replay_buffer": False},
-        # "Only ER": {"use_target_net": False, "use_replay_buffer": True},
-        # "TN & ER": {"use_target_net": True, "use_replay_buffer": True}
+        # "Only TN": {"use_target_net": True, "use_replay_buffer": False},
+        "Only ER": {"use_target_net": False, "use_replay_buffer": True},
+        "TN & ER": {"use_target_net": True, "use_replay_buffer": True}
     }
 
     results = {}
@@ -105,7 +105,7 @@ def compare_configurations():
         plt.plot(rewards, label=label, linewidth=2)
     
     plt.xlabel("Episode")
-    plt.ylabel("Smoothed Reward (20-episode Avg)")
+    plt.ylabel("Smoothed Reward (200-episode Avg)")
     plt.title("Performance Comparison with Best Parameters\n"
               "[LR=0.01, Update=4, Hidden=256, ε-decay=0.999]")
     plt.legend()

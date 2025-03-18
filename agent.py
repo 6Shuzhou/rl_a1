@@ -51,14 +51,18 @@ class QLearningAgent:
     def update_epsilon(self):
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 
-    def update_target_network(self):
-        """软更新目标网络参数"""
-        if self.target_q_net:
-            for target_param, main_param in zip(self.target_q_net.parameters(), self.q_net.parameters()):
-                target_param.data.copy_(
-                    self.tau * main_param.data + (1.0 - self.tau) * target_param.data
-                )
+    # def update_target_network(self):
+    #     """软更新目标网络参数"""
+    #     if self.target_q_net:
+    #         for target_param, main_param in zip(self.target_q_net.parameters(), self.q_net.parameters()):
+    #             target_param.data.copy_(
+    #                 self.tau * main_param.data + (1.0 - self.tau) * target_param.data
+    #             )
 
+
+    def update_target_network(self):
+        self.target_q_net.load_state_dict(self.q_net.state_dict())
+        
     def train_step(self, state, action, reward, next_state, done):
         # 将经验添加到缓冲区（如果使用经验回放）
         if self.use_replay_buffer:
