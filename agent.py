@@ -6,35 +6,36 @@ from replay_buffer import ReplayBuffer
 import torch.nn as nn
 class QLearningAgent:
     def __init__(self, env, use_target_net=False, use_replay_buffer=False,
-                 hidden_dim=128, lr=0.00025, gamma=0.99, epsilon=1.0, 
-                 epsilon_decay=0.999, epsilon_min=0.01, batch_size=128,
-                 buffer_size=10_000, tau=0.1):
+                 hidden_dim=128, lr=0.00025, gamma=0.99, batch_size=128,
+                 buffer_size=10_000, tau=0.01, epsilon_decay=0.999,
+                 epsilon_min=0.001, update_interval=1):  # 新增参数
+        
         self.env = env
         self.state_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.n
         self.use_target_net = use_target_net
         self.use_replay_buffer = use_replay_buffer
         self.batch_size = batch_size
-        self.tau = tau  # 软更新比例
-
-        # 主网络和目标网络
-        self.q_net = QNetwork(self.state_dim, self.action_dim, hidden_dim)  # 使用新网络结构
+        self.tau = tau
+        self.update_interval = update_interval  # 新增
         
-        self.target_q_net = QNetwork(self.state_dim, self.action_dim) if use_target_net else None
+        # Q网络和目标网络
+        self.q_net = QNetwork(self.state_dim, self.action_dim, hidden_dim)
+        self.target_q_net = QNetwork(self.state_dim, self.action_dim, hidden_dim) if use_target_net else None
         if self.target_q_net:
             self.target_q_net.load_state_dict(self.q_net.state_dict())
             self.target_q_net.eval()
-
-        # 优化器和损失函数
-        self.optimizer = optim.RMSprop(self.q_net.parameters(), lr=lr)  # 修改优化器为RMSProp
+        
+        # 优化器
+        self.optimizer = optim.RMSprop(self.q_net.parameters(), lr=lr)
         self.loss_fn = nn.MSELoss()
-
-        # 经验回放缓冲区
+        
+        # 经验回放
         self.replay_buffer = ReplayBuffer(buffer_size) if use_replay_buffer else None
-
+        
         # 探索参数
         self.gamma = gamma
-        self.epsilon = epsilon
+        self.epsilon = 1.0
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
 

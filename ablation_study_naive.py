@@ -108,7 +108,7 @@ def train(config, params):
         "final_epsilon": agent.epsilon
     }
 
-def evaluate_policy(agent, env, n_episodes=5):
+def evaluate_policy(agent, env, n_episodes=50):
     """ Policy evaluation function """
     total_rewards = []
     for _ in range(n_episodes):
