@@ -2,6 +2,7 @@
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
+import warnings  # Added warning filtering
 from agent import QLearningAgent
 import hashlib
 import os
@@ -10,7 +11,11 @@ import pandas as pd
 from tqdm import tqdm
 import torch
 
-# Fixed random seed for reproducibility
+# Filter warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
+# Fix random seed for reproducibility
 SEED = 42
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -35,7 +40,7 @@ BASE_CONFIG = {
 }
 
 def train(config, params):
-    """Training function"""
+    """ Training function (fixed environment termination issue) """
     env = gym.make("CartPole-v1")
     
     agent = QLearningAgent(
@@ -52,36 +57,37 @@ def train(config, params):
         epsilon_min=0.01
     )
     
-    # Initialize records container
     eval_records = []
     step_count = 0
-    episode = 0
     
-    # Training loop
     with tqdm(total=config["total_steps"], desc=generate_exp_id(params)) as pbar:
         while step_count < config["total_steps"]:
             state, _ = env.reset()
-            terminated, truncated = False, False
+            episode_reward = 0
+            terminated = False
+            truncated = False
             episode_steps = 0
-
+            
             while True:
+                # Check termination conditions first
                 if terminated or truncated or episode_steps >= config["max_steps_per_episode"]:
                     break
                 
-                # Perform environment interaction
                 action = agent.get_action(state)
                 next_state, reward, terminated, truncated, _ = env.step(action)
                 done = terminated or truncated
                 
-                # Update network at intervals
+                # Training step
                 if step_count % params["update_interval"] == 0:
                     agent.train_step(state, action, reward, next_state, done)
                 
                 state = next_state
-                step_count += 1
+                episode_reward += reward
                 episode_steps += 1
+                step_count += 1
+                pbar.update(1)
                 
-                # Regular evaluation
+                # Periodic evaluation
                 if step_count % config["eval_interval"] == 0:
                     eval_reward = evaluate_policy(agent, env)
                     eval_records.append({
@@ -90,23 +96,20 @@ def train(config, params):
                         "epsilon": agent.epsilon
                     })
                 
-                pbar.update(1)
+                # Total step count check
                 if step_count >= config["total_steps"]:
                     break
             
             agent.update_epsilon()
-            episode += 1
     
-    env.close()
     return {
         "eval_records": eval_records,
         "params": params,
         "final_epsilon": agent.epsilon
     }
 
-
 def evaluate_policy(agent, env, n_episodes=5):
-    """Policy evaluation function"""
+    """ Policy evaluation function """
     total_rewards = []
     for _ in range(n_episodes):
         state, _ = env.reset()
@@ -124,12 +127,12 @@ def evaluate_policy(agent, env, n_episodes=5):
     return np.mean(total_rewards)
 
 def generate_exp_id(params):
-    """Generate unique experiment ID"""
+    """ Generate unique experiment ID """
     param_str = json.dumps(params, sort_keys=True)
     return hashlib.sha256(param_str.encode()).hexdigest()[:12]
 
 def save_results(results):
-    """Save results"""
+    """ Save results """
     os.makedirs("ablation_results", exist_ok=True)
     exp_id = generate_exp_id(results["params"])
     
@@ -145,7 +148,7 @@ def save_results(results):
         }, f)
 
 def load_results(exp_id):
-    """Load results"""
+    """ Load results """
     try:
         df = pd.read_parquet(f"ablation_results/{exp_id}.parquet")
         with open(f"ablation_results/{exp_id}_meta.json", "r") as f:
@@ -158,7 +161,7 @@ def load_results(exp_id):
         return None
 
 def ablation_study():
-    """Main ablation study function"""
+    """ Main ablation study function """
     os.makedirs("ablation_plots", exist_ok=True)
     
     param_order = ["learning_rate", "update_interval", "hidden_dim", "epsilon_decay"]
@@ -177,7 +180,7 @@ def ablation_study():
             # Check cache
             cached = load_results(exp_id)
             if cached:
-                print(f"Using cached result: {exp_id}")
+                print(f"Using cached results: {exp_id}")
                 experiments.append((params, cached))
                 continue
                 
@@ -196,7 +199,7 @@ def ablation_study():
             plt.plot(steps, rewards, label=f"{param_name}={value}")
         
         plt.xlabel("Environment Steps")
-        plt.ylabel("Evaluation Reward (5-episode avg)")
+        plt.ylabel("Evaluation Reward (5-episode average)")
         plt.title(f"Parameter Ablation Study: {param_name}")
         plt.legend()
         plt.grid(True)
@@ -209,12 +212,12 @@ def ablation_study():
         print(f"Best parameter selected: {param_name} = {best_value}")
 
 def analyze_results(experiments, param_name):
-    """Analyze results to select best parameter"""
+    """ Analyze results to select the best parameter """
     best_score = -np.inf
     best_value = None
     
     for params, result in experiments:
-        # Take average of last 5 evaluations
+        # Take the average of the last 5 evaluations
         last_rewards = [r["eval_reward"] for r in result["eval_records"][-5:]]
         score = np.mean(last_rewards)
         

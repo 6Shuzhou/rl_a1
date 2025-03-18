@@ -45,7 +45,7 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
         agent.update_epsilon()        
         # 记录奖励并计算滑动平均
         episode_rewards.append(total_reward)
-        window_size = 20
+        window_size = 100
         if episode < window_size:
             avg = np.mean(episode_rewards[:episode+1])  # 初始阶段用全部数据
         else:
@@ -71,8 +71,8 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
 def compare_configurations():
     """ 比较四种配置的性能 """
     configurations = {
-        "Naive": {"use_target_net": False, "use_replay_buffer": False},
-        # "Only TN": {"use_target_net": True, "use_replay_buffer": False},
+        # "Naive": {"use_target_net": False, "use_replay_buffer": False},
+        "Only TN": {"use_target_net": True, "use_replay_buffer": False},
         # "Only ER": {"use_target_net": False, "use_replay_buffer": True},
         # "TN & ER": {"use_target_net": True, "use_replay_buffer": True}
     }
