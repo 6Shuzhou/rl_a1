@@ -1,0 +1,1 @@
+{"params": {"learning_rate": 0.001, "update_interval": 1, "hidden_dim": 128, "epsilon_decay": 0.999}, "final_epsilon": 0.01}

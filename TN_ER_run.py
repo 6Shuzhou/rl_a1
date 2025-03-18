@@ -5,27 +5,27 @@ import matplotlib.pyplot as plt
 from agent import QLearningAgent
 import torch
 
-# 过滤警告
+# Filter warnings
 import warnings
 warnings.filterwarnings("ignore")
 
 def train(config_name, use_target_net=False, use_replay_buffer=False):
     env = gym.make("CartPole-v1")
     
-    # 使用消融研究确定的最佳参数
+    # Use best parameters determined by ablation study
     agent = QLearningAgent(
         env,
         use_target_net=use_target_net,
         use_replay_buffer=use_replay_buffer,
-        hidden_dim=256,          # 最佳隐藏层维度
-        lr=0.01,                 # 最佳学习率
+        hidden_dim=256,          # Best hidden layer dimension
+        lr=0.01,                 # Best learning rate
         gamma=0.99,
         batch_size=128,
         buffer_size=10_000,
-        tau=0.1,                # 目标网络软更新系数
-        epsilon_decay=0.999,      # 最佳ε衰减率
+        tau=0.1,                # Target network soft update coefficient
+        epsilon_decay=0.999,     # Best epsilon decay rate
         epsilon_min=0.01,
-        update_interval=4         # 最佳更新间隔（每4步更新一次）
+        update_interval=1        # Best update interval
     )
     
     episode_rewards = []
@@ -47,7 +47,7 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
             
-            # 只在更新间隔满足时执行训练
+            # Only train when update interval condition is met
             if step_count % agent.update_interval == 0:
                 agent.train_step(state, action, reward, next_state, done)
                 
@@ -56,22 +56,22 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
             step_count += 1
             episode_steps += 1
 
-            # 定期打印进度（每10,000步）
+            # Periodically print progress (every 10,000 steps)
             if step_count % 10_000 == 0:
                 current_avg = np.mean(episode_rewards[-200:]) if episode_rewards else 0
                 print(f"{config_name} | Step {step_count} | Ep {episode} | ε={agent.epsilon:.3f} | Avg Reward={current_avg:.1f}")
 
-        # 每个episode结束时更新ε
+        # Update epsilon at the end of each episode
         agent.update_epsilon()
 
-        # 记录奖励并计算滑动平均
+        # Record rewards and calculate moving average
         episode_rewards.append(total_reward)
         window_size = 200
         avg = np.mean(episode_rewards[-window_size:]) if episode >= window_size else np.mean(episode_rewards)
         avg_rewards.append(avg)
         episode += 1
 
-    # 保存训练曲线
+    # Save training curve
     plt.figure(figsize=(12, 4))
     plt.plot(episode_rewards, alpha=0.2, label="Raw Reward")
     plt.plot(avg_rewards, linewidth=2, label="Smoothed (200-episode Avg)")
@@ -85,10 +85,10 @@ def train(config_name, use_target_net=False, use_replay_buffer=False):
     return avg_rewards
 
 def compare_configurations():
-    """ 比较四种配置的性能（使用最佳参数）"""
+    """Compare performance of four configurations (using best parameters)"""
     configurations = {
         # "Naive": {"use_target_net": False, "use_replay_buffer": False},
-        # "Only TN": {"use_target_net": True, "use_replay_buffer": False},
+        "Only TN": {"use_target_net": True, "use_replay_buffer": False},
         "Only ER": {"use_target_net": False, "use_replay_buffer": True},
         "TN & ER": {"use_target_net": True, "use_replay_buffer": True}
     }
@@ -99,7 +99,7 @@ def compare_configurations():
         avg_rewards = train(config_name, **params)
         results[config_name] = avg_rewards
 
-    # 绘制对比曲线
+    # Plot comparison curves
     plt.figure(figsize=(12, 6))
     for label, rewards in results.items():
         plt.plot(rewards, label=label, linewidth=2)

@@ -2,7 +2,7 @@
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
-import warnings  # Added warning filtering
+import warnings
 from agent import QLearningAgent
 import hashlib
 import os
@@ -15,7 +15,7 @@ import torch
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# Fix random seed for reproducibility
+# Fix random seeds for reproducibility
 SEED = 42
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -24,7 +24,9 @@ torch.manual_seed(SEED)
 BASE_CONFIG = {
     "total_steps": 1_000_000,
     "max_steps_per_episode": 500,
-    "eval_interval": 10_000,
+    "eval_interval": 10_000,     # Evaluate every 10,000 steps
+    "smooth_window": 200,         # sliding window size
+    "eval_episodes": 50,          # number of episodes per evaluation point
     "default_params": {
         "learning_rate": 1e-3,
         "update_interval": 1,
@@ -40,7 +42,7 @@ BASE_CONFIG = {
 }
 
 def train(config, params):
-    """ Training function (fixed environment termination issue) """
+    """ Training function """
     env = gym.make("CartPole-v1")
     
     agent = QLearningAgent(
@@ -89,7 +91,7 @@ def train(config, params):
                 
                 # Periodic evaluation
                 if step_count % config["eval_interval"] == 0:
-                    eval_reward = evaluate_policy(agent, env)
+                    eval_reward = evaluate_policy(agent, env, config["eval_episodes"])
                     eval_records.append({
                         "step": step_count,
                         "eval_reward": eval_reward,
@@ -109,7 +111,7 @@ def train(config, params):
     }
 
 def evaluate_policy(agent, env, n_episodes=50):
-    """ Policy evaluation function """
+    """ Policy evaluation function (using configuration parameters) """
     total_rewards = []
     for _ in range(n_episodes):
         state, _ = env.reset()
@@ -161,11 +163,13 @@ def load_results(exp_id):
         return None
 
 def ablation_study():
-    """ Main ablation study function """
+    """ Main ablation study function"""
     os.makedirs("ablation_plots", exist_ok=True)
     
     param_order = ["learning_rate", "update_interval", "hidden_dim", "epsilon_decay"]
     best_params = BASE_CONFIG["default_params"].copy()
+    smooth_window = BASE_CONFIG["smooth_window"]
+    eval_episodes = BASE_CONFIG["eval_episodes"]
     
     for param_name in param_order:
         print(f"\n=== Analyzing parameter: {param_name} ===")
@@ -190,35 +194,50 @@ def ablation_study():
             save_results(results)
             experiments.append((params, results))
         
-        # Plot comparison
+        # Plot comparison 
         plt.figure(figsize=(10, 6))
         for params, result in experiments:
             value = params[param_name]
-            steps = [r["step"] for r in result["eval_records"]]
-            rewards = [r["eval_reward"] for r in result["eval_records"]]
-            plt.plot(steps, rewards, label=f"{param_name}={value}")
-        
+            records = result["eval_records"]
+            
+            # Create DataFrame for sliding average
+            df = pd.DataFrame(records)
+            df['smooth_reward'] = df['eval_reward'].rolling(
+                window=smooth_window, 
+                min_periods=1
+            ).mean()
+            
+            plt.plot(df['step'], df['smooth_reward'], 
+                     label=f"{param_name}={value}")
+
         plt.xlabel("Environment Steps")
-        plt.ylabel("Evaluation Reward (5-episode average)")
+        plt.ylabel(f"Evaluation Reward ({eval_episodes}-episode average, {smooth_window}-step smoothing)")
         plt.title(f"Parameter Ablation Study: {param_name}")
         plt.legend()
         plt.grid(True)
         plt.savefig(f"ablation_plots/{param_name}.png", dpi=300, bbox_inches="tight")
         plt.close()
         
-        # Select best parameter
-        best_value = analyze_results(experiments, param_name)
+        # Select best parameter (using smoothed results)
+        best_value = analyze_results(experiments, param_name, smooth_window)
         best_params[param_name] = best_value
         print(f"Best parameter selected: {param_name} = {best_value}")
 
-def analyze_results(experiments, param_name):
-    """ Analyze results to select the best parameter """
+def analyze_results(experiments, param_name, window_size):
+    """ Analyze results to select the best parameter (improved version) """
     best_score = -np.inf
     best_value = None
     
     for params, result in experiments:
-        # Take the average of the last 5 evaluations
-        last_rewards = [r["eval_reward"] for r in result["eval_records"][-5:]]
+        records = result["eval_records"]
+        
+        # Use the last window_size//2 evaluation points
+        eval_window = max(1, int(window_size * 0.5))
+        if len(records) >= eval_window:
+            last_rewards = [r["eval_reward"] for r in records[-eval_window:]]
+        else:
+            last_rewards = [r["eval_reward"] for r in records]
+        
         score = np.mean(last_rewards)
         
         if score > best_score:
